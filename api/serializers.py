@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Member
+from .models import Member, Project, Asset, EditHistory
 
 
 class MessageSerializer(serializers.Serializer):
@@ -50,3 +50,39 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError({"password": "Invalid credentials"})
         attrs["member"] = member
         return attrs
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    owner = serializers.IntegerField(source="owner_id", read_only=True)
+    assets_count = serializers.IntegerField(read_only=True, required=False)
+
+    class Meta:
+        model = Project
+        fields = ["id", "owner", "title", "assets_count", "created_at", "updated_at"]
+        read_only_fields = ["id", "owner", "created_at", "updated_at", "assets_count"]
+
+
+class AssetSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Asset
+        fields = ["id", "project", "original_name", "size", "mime", "file", "created_at"]
+        read_only_fields = ["id", "project", "created_at", "file"]
+
+    def get_file(self, obj):
+        request = self.context.get("request")
+        try:
+            url = obj.file.url
+        except Exception:
+            url = ""
+        if request is not None and url:
+            return request.build_absolute_uri(url)
+        return url
+
+
+class EditHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EditHistory
+        fields = ["id", "project", "action", "params", "created_at"]
+        read_only_fields = ["id", "project", "created_at"]

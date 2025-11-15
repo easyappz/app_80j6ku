@@ -57,3 +57,47 @@ class Member(models.Model):
         )
         calc_hash = base64.urlsafe_b64encode(dk).decode("utf-8").rstrip("=")
         return hmac.compare_digest(calc_hash, stored_hash)
+
+
+class Project(models.Model):
+    owner = models.ForeignKey(Member, on_delete=models.CASCADE, related_name="projects")
+    title = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"Project #{self.id} - {self.title}"
+
+
+class Asset(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="assets")
+    file = models.FileField(upload_to="videos/")
+    original_name = models.CharField(max_length=255)
+    size = models.IntegerField()
+    mime = models.CharField(max_length=100, default="video/mp4")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"Asset #{self.id} of Project #{self.project_id} - {self.original_name}"
+
+
+class EditHistory(models.Model):
+    ACTION_TRIM = "trim"
+    ACTION_MERGE = "merge"
+    ACTION_ADD_TEXT = "add_text"
+    ACTION_CROP = "crop"
+
+    ACTION_CHOICES = [
+        (ACTION_TRIM, ACTION_TRIM),
+        (ACTION_MERGE, ACTION_MERGE),
+        (ACTION_ADD_TEXT, ACTION_ADD_TEXT),
+        (ACTION_CROP, ACTION_CROP),
+    ]
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="history")
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    params = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"EditHistory #{self.id} - {self.action} (Project #{self.project_id})"

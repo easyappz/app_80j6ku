@@ -83,6 +83,193 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Member'
+  /api/projects/:
+    get:
+      operationId: project_list
+      tags: [projects]
+      description: List current member's projects
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: A list of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Project'
+    post:
+      operationId: project_create
+      tags: [projects]
+      description: Create a project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+  /api/projects/{pk}/:
+    get:
+      operationId: project_retrieve
+      tags: [projects]
+      description: Retrieve a project by id (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    patch:
+      operationId: project_update
+      tags: [projects]
+      description: Update project title
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    delete:
+      operationId: project_delete
+      tags: [projects]
+      description: Delete a project (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema: { type: integer }
+      responses:
+        '204':
+          description: Deleted
+  /api/projects/{pk}/assets/:
+    get:
+      operationId: project_assets_list
+      tags: [assets]
+      description: List assets for a project (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Asset'
+    post:
+      operationId: project_assets_upload
+      tags: [assets]
+      description: Upload an MP4 asset for a project (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required: [file]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+  /api/projects/{pk}/history/:
+    get:
+      operationId: project_history_list
+      tags: [history]
+      description: List edit history for a project (owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EditHistory'
+    post:
+      operationId: project_history_create
+      tags: [history]
+      description: Create a history record
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: pk
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditHistoryCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditHistory'
 components:
   schemas:
     Message:
@@ -141,6 +328,87 @@ components:
           type: string
           format: password
       required: [email, password]
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+        owner:
+          type: integer
+          description: Owner member id
+        title:
+          type: string
+          maxLength: 200
+        assets_count:
+          type: integer
+          description: Number of assets in the project
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, owner, title, created_at, updated_at]
+    ProjectCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+      required: [title]
+    ProjectUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+    Asset:
+      type: object
+      properties:
+        id:
+          type: integer
+        project:
+          type: integer
+        original_name:
+          type: string
+        size:
+          type: integer
+        mime:
+          type: string
+          default: video/mp4
+        file:
+          type: string
+          format: uri
+          description: Absolute URL to the uploaded file
+        created_at:
+          type: string
+          format: date-time
+      required: [id, project, original_name, size, mime, file, created_at]
+    EditHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+        project:
+          type: integer
+        action:
+          type: string
+          enum: [trim, merge, add_text, crop]
+        params:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+      required: [id, project, action, params, created_at]
+    EditHistoryCreateRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [trim, merge, add_text, crop]
+        params:
+          type: object
+      required: [action]
   securitySchemes:
     bearerAuth:
       type: http
