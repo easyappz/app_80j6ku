@@ -71,6 +71,9 @@ INSTALLED_APPS = [
 # REST Framework configuration
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "api.authentication.MemberJWTAuthentication",
+    ],
 }
 
 # drf-spectacular configuration
@@ -162,3 +165,6 @@ STATIC_URL = "django_static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# App constants
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024
