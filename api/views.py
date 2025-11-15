@@ -46,7 +46,7 @@ class AuthRegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.create(serializer.validated_data)
         return Response({"message": "registered"}, status=status.HTTP_201_CREATED)
 
 
@@ -66,13 +66,14 @@ class AuthLoginView(APIView):
 
 class ProfileView(APIView):
     authentication_classes = [MemberJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     @extend_schema(
         responses={200: MemberSerializer},
         description="Get authenticated member profile",
     )
     def get(self, request):
-        member = getattr(request, "member", None)
+        member = getattr(request, "user", None)
         return Response(MemberSerializer(member).data)
 
 
