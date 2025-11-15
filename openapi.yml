@@ -60,13 +60,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-                  member:
-                    $ref: '#/components/schemas/Member'
-                required: [token, member]
+                $ref: '#/components/schemas/TokenResponse'
         '400':
           description: Validation error
   /api/auth/profile/:
@@ -118,7 +112,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Project'
-  /api/projects/{pk}/:
+  /api/projects/{id}/:
     get:
       operationId: project_retrieve
       tags: [projects]
@@ -127,7 +121,7 @@ paths:
         - bearerAuth: []
       parameters:
         - in: path
-          name: pk
+          name: id
           required: true
           schema: { type: integer }
       responses:
@@ -145,7 +139,7 @@ paths:
         - bearerAuth: []
       parameters:
         - in: path
-          name: pk
+          name: id
           required: true
           schema: { type: integer }
       requestBody:
@@ -169,13 +163,13 @@ paths:
         - bearerAuth: []
       parameters:
         - in: path
-          name: pk
+          name: id
           required: true
           schema: { type: integer }
       responses:
         '204':
           description: Deleted
-  /api/projects/{pk}/assets/:
+  /api/projects/{id}/assets/:
     get:
       operationId: project_assets_list
       tags: [assets]
@@ -184,7 +178,7 @@ paths:
         - bearerAuth: []
       parameters:
         - in: path
-          name: pk
+          name: id
           required: true
           schema: { type: integer }
       responses:
@@ -199,12 +193,12 @@ paths:
     post:
       operationId: project_assets_upload
       tags: [assets]
-      description: Upload an MP4 asset for a project (owner only)
+      description: Upload an asset (owner only). Only 'video/mp4' files up to 50MB are allowed.
       security:
         - bearerAuth: []
       parameters:
         - in: path
-          name: pk
+          name: id
           required: true
           schema: { type: integer }
       requestBody:
@@ -225,7 +219,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Asset'
-  /api/projects/{pk}/history/:
+  /api/projects/{id}/history/:
     get:
       operationId: project_history_list
       tags: [history]
@@ -234,7 +228,7 @@ paths:
         - bearerAuth: []
       parameters:
         - in: path
-          name: pk
+          name: id
           required: true
           schema: { type: integer }
       responses:
@@ -254,7 +248,7 @@ paths:
         - bearerAuth: []
       parameters:
         - in: path
-          name: pk
+          name: id
           required: true
           schema: { type: integer }
       requestBody:
@@ -328,6 +322,14 @@ components:
           type: string
           format: password
       required: [email, password]
+    TokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        member:
+          $ref: '#/components/schemas/Member'
+      required: [token, member]
     Project:
       type: object
       properties:
@@ -413,3 +415,4 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+      bearerFormat: JWT

@@ -33,7 +33,7 @@ class HelloView(APIView):
     )
     def get(self, request):
         data = {"message": "Hello!", "timestamp": timezone.now()}
-        serializer = MessageSerializer(data)
+        serializer = MessageSerializer(instance=data)
         return Response(serializer.data)
 
 
