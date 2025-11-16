@@ -71,13 +71,11 @@ class AssetSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "project", "created_at", "file"]
 
     def get_file(self, obj):
-        request = self.context.get("request")
         try:
             url = obj.file.url
         except Exception:
-            url = ""
-        if request is not None and url:
-            return request.build_absolute_uri(url)
+            return ""
+        # Return relative URL path (e.g., /media/videos/filename.mp4)
         return url
 
 

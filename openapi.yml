@@ -477,7 +477,7 @@ components:
         file:
           type: string
           format: uri
-          description: Absolute URL to the uploaded file
+          description: URL path relative to the current host (e.g., /media/...)
         created_at:
           type: string
           format: date-time
