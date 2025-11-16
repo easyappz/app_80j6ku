@@ -36,8 +36,7 @@ export async function uploadAsset(projectId, file) {
   // Let the browser set the Content-Type with proper boundary for FormData
   const { data } = await instance.post(
     `/api/projects/${projectId}/assets/`,
-    formData,
-    { headers: { 'Content-Type': undefined } }
+    formData
   );
 
   return data;
