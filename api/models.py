@@ -3,6 +3,7 @@ import os
 import base64
 import hashlib
 import hmac
+import uuid
 
 
 class Member(models.Model):
@@ -101,3 +102,18 @@ class EditHistory(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"EditHistory #{self.id} - {self.action} (Project #{self.project_id})"
+
+
+class ChunkedUpload(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="chunked_uploads")
+    filename = models.CharField(max_length=255)
+    mime = models.CharField(max_length=100, default="video/mp4")
+    total_size = models.IntegerField()
+    received_size = models.IntegerField(default=0)
+    temp_path = models.CharField(max_length=500)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):  # pragma: no cover
+        return f"ChunkedUpload {self.id} for Project {self.project_id} ({self.filename})"

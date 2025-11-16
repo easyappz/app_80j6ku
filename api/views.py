@@ -21,6 +21,12 @@ from .authentication import MemberJWTAuthentication
 from .auth import create_jwt
 from .permissions import IsOwnerProject
 from .models import Project, Asset, EditHistory
+import os
+from django.core.files.base import File
+from django.http import Http404
+
+
+CHUNK_SIZE = 512 * 1024
 
 
 class HelloView(APIView):
@@ -234,4 +240,177 @@ class ProjectHistoryView(APIView):
 
         item = EditHistory.objects.create(project=project, action=action, params=params)
         serializer = EditHistorySerializer(item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class AssetChunkedInitView(APIView):
+    authentication_classes = [MemberJWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOwnerProject]
+
+    @extend_schema(
+        request={
+            "application/json": {
+                "type": "object",
+                "properties": {
+                    "filename": {"type": "string"},
+                    "size": {"type": "integer"},
+                    "mime": {"type": "string"},
+                },
+                "required": ["filename", "size"],
+            }
+        },
+        responses={201: {"type": "object", "properties": {"upload_id": {"type": "string"}, "chunk_size": {"type": "integer"}}}},
+    )
+    def post(self, request, pk: int):
+        project = get_object_or_404(Project, pk=pk)
+        # object permission
+        for permission in self.permission_classes:
+            if hasattr(permission, "has_object_permission"):
+                perm = permission()
+                if not perm.has_object_permission(request, self, project):
+                    from rest_framework.exceptions import PermissionDenied
+                    raise PermissionDenied("You do not have permission to access this project")
+
+        filename = (request.data.get("filename") or "").strip()
+        total_size = int(request.data.get("size") or 0)
+        mime = (request.data.get("mime") or "").strip() or "video/mp4"
+
+        if not filename or total_size <= 0:
+            return Response({"detail": "filename and size are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # only MP4
+        if not filename.lower().endswith(".mp4") or mime.lower() != "video/mp4":
+            return Response({"detail": "Only MP4 videos are allowed"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if total_size > int(getattr(settings, "MAX_UPLOAD_SIZE", 50 * 1024 * 1024)):
+            return Response({"detail": "File too large"}, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+
+        tmp_dir = os.path.join(settings.MEDIA_ROOT, "tmp")
+        os.makedirs(tmp_dir, exist_ok=True)
+        # unique temp path
+        import uuid as _uuid
+        uid = _uuid.uuid4()
+        temp_path = os.path.join(tmp_dir, f"{uid}.part")
+
+        # touch empty file
+        with open(temp_path, "wb") as f:
+            pass
+
+        from .models import ChunkedUpload
+        cu = ChunkedUpload.objects.create(
+            id=uid,
+            project=project,
+            filename=filename,
+            mime="video/mp4",
+            total_size=total_size,
+            temp_path=temp_path,
+        )
+
+        return Response({"upload_id": str(cu.id), "chunk_size": CHUNK_SIZE}, status=status.HTTP_201_CREATED)
+
+
+class AssetChunkedUploadView(APIView):
+    authentication_classes = [MemberJWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOwnerProject]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "chunk": {"type": "string", "format": "binary"},
+                    "index": {"type": "integer"},
+                },
+                "required": ["chunk"],
+            }
+        },
+        responses={200: {"type": "object", "properties": {"received": {"type": "integer"}, "done": {"type": "boolean"}}}},
+    )
+    def post(self, request, pk: int, uid):
+        from .models import ChunkedUpload
+        try:
+            cu = ChunkedUpload.objects.select_related("project").get(id=uid, project_id=pk)
+        except ChunkedUpload.DoesNotExist:
+            raise Http404
+
+        # object permission check against project
+        for permission in self.permission_classes:
+            if hasattr(permission, "has_object_permission"):
+                perm = permission()
+                if not perm.has_object_permission(request, self, cu.project):
+                    from rest_framework.exceptions import PermissionDenied
+                    raise PermissionDenied("You do not have permission to access this project")
+
+        chunk = request.FILES.get("chunk")
+        if not chunk:
+            return Response({"detail": "chunk is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # prevent overflow
+        new_received = cu.received_size + int(chunk.size)
+        if new_received > cu.total_size:
+            return Response({"detail": "Received size exceeds declared total"}, status=status.HTTP_400_BAD_REQUEST)
+
+        with open(cu.temp_path, "ab") as f:
+            for data in chunk.chunks():
+                f.write(data)
+
+        cu.received_size = new_received
+        cu.save(update_fields=["received_size", "updated_at"])
+
+        done = cu.received_size >= cu.total_size
+        return Response({"received": cu.received_size, "done": done})
+
+
+class AssetChunkedCompleteView(APIView):
+    authentication_classes = [MemberJWTAuthentication]
+    permission_classes = [IsAuthenticated, IsOwnerProject]
+
+    @extend_schema(responses={201: AssetSerializer})
+    def post(self, request, pk: int, uid):
+        from .models import ChunkedUpload
+        try:
+            cu = ChunkedUpload.objects.select_related("project").get(id=uid, project_id=pk)
+        except ChunkedUpload.DoesNotExist:
+            raise Http404
+
+        # object permission check
+        for permission in self.permission_classes:
+            if hasattr(permission, "has_object_permission"):
+                perm = permission()
+                if not perm.has_object_permission(request, self, cu.project):
+                    from rest_framework.exceptions import PermissionDenied
+                    raise PermissionDenied("You do not have permission to access this project")
+
+        if cu.received_size != cu.total_size:
+            return Response({"detail": "Upload is not complete"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate file still within size and mp4
+        if not cu.filename.lower().endswith(".mp4"):
+            return Response({"detail": "Only MP4 videos are allowed"}, status=status.HTTP_400_BAD_REQUEST)
+        if cu.total_size > int(getattr(settings, "MAX_UPLOAD_SIZE", 50 * 1024 * 1024)):
+            return Response({"detail": "File too large"}, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+
+        # Save as Asset
+        from .models import Asset
+        import uuid as _uuid
+        new_name = f"{_uuid.uuid4().hex}_{os.path.basename(cu.filename)}"
+        with open(cu.temp_path, "rb") as f:
+            django_file = File(f, name=new_name)
+            asset = Asset.objects.create(
+                project=cu.project,
+                original_name=cu.filename,
+                size=cu.total_size,
+                mime="video/mp4",
+            )
+            asset.file.save(new_name, django_file, save=True)
+
+        # cleanup
+        try:
+            os.remove(cu.temp_path)
+        except Exception:
+            pass
+        cu.delete()
+
+        serializer = AssetSerializer(asset, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)

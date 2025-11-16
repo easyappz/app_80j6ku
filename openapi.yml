@@ -219,6 +219,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Asset'
+  /api/projects/{id}/assets/chunked/init/:
+    post:
+      operationId: project_assets_chunked_init
+      tags: [assets]
+      description: Initialize a chunked upload session. Only MP4 allowed.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChunkedInitRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChunkedInitResponse'
+        '400':
+          description: Bad request
+        '413':
+          description: Payload too large
+  /api/projects/{id}/assets/chunked/{upload_id}/:
+    post:
+      operationId: project_assets_chunked_upload
+      tags: [assets]
+      description: Upload a file chunk for the given upload session.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+        - in: path
+          name: upload_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                chunk:
+                  type: string
+                  format: binary
+                index:
+                  type: integer
+              required: [chunk]
+      responses:
+        '200':
+          description: Progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChunkedUploadProgress'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+  /api/projects/{id}/assets/chunked/{upload_id}/complete/:
+    post:
+      operationId: project_assets_chunked_complete
+      tags: [assets]
+      description: Complete the chunked upload and create an Asset entry.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+        - in: path
+          name: upload_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
   /api/projects/{id}/history/:
     get:
       operationId: project_history_list
@@ -386,6 +482,32 @@ components:
           type: string
           format: date-time
       required: [id, project, original_name, size, mime, file, created_at]
+    ChunkedInitRequest:
+      type: object
+      properties:
+        filename:
+          type: string
+        size:
+          type: integer
+        mime:
+          type: string
+      required: [filename, size]
+    ChunkedInitResponse:
+      type: object
+      properties:
+        upload_id:
+          type: string
+        chunk_size:
+          type: integer
+      required: [upload_id, chunk_size]
+    ChunkedUploadProgress:
+      type: object
+      properties:
+        received:
+          type: integer
+        done:
+          type: boolean
+      required: [received, done]
     EditHistory:
       type: object
       properties:

@@ -8,6 +8,9 @@ from .views import (
     ProjectDetailView,
     ProjectAssetsView,
     ProjectHistoryView,
+    AssetChunkedInitView,
+    AssetChunkedUploadView,
+    AssetChunkedCompleteView,
 )
 
 urlpatterns = [
@@ -19,4 +22,7 @@ urlpatterns = [
     path("projects/<int:pk>/", ProjectDetailView.as_view(), name="project-detail"),
     path("projects/<int:pk>/assets/", ProjectAssetsView.as_view(), name="project-assets"),
     path("projects/<int:pk>/history/", ProjectHistoryView.as_view(), name="project-history"),
+    path("projects/<int:pk>/assets/chunked/init/", AssetChunkedInitView.as_view(), name="project-assets-chunked-init"),
+    path("projects/<int:pk>/assets/chunked/<uuid:uid>/", AssetChunkedUploadView.as_view(), name="project-assets-chunked-upload"),
+    path("projects/<int:pk>/assets/chunked/<uuid:uid>/complete/", AssetChunkedCompleteView.as_view(), name="project-assets-chunked-complete"),
 ]
