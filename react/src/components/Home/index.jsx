@@ -27,6 +27,7 @@ export const Home = () => {
 
   const [assets, setAssets] = useState([]);
   const [assetFile, setAssetFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [history, setHistory] = useState([]);
 
@@ -113,12 +114,12 @@ export const Home = () => {
     e.preventDefault();
     if (!selectedProjectId || !assetFile) return;
     setLoading(true);
+    setUploadProgress(0);
     setActionError('');
     try {
-      const up = await uploadAsset(selectedProjectId, assetFile);
+      const up = await uploadAsset(selectedProjectId, assetFile, (p) => setUploadProgress(p));
       setAssets((prev) => [up, ...prev]);
       setAssetFile(null);
-      // refresh projects list to update assets_count if shown later
     } catch (err) {
       setActionError(err?.response?.data?.detail || err.message || 'Не удалось загрузить файл');
     } finally {
@@ -238,6 +239,9 @@ export const Home = () => {
                   <button className="btn" onClick={onUpload} disabled={!assetFile || !selectedProjectId || loading}>
                     {loading ? 'Загружаем…' : 'Загрузить'}
                   </button>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    {uploadProgress > 0 && uploadProgress < 1 ? `${Math.round(uploadProgress * 100)}%` : ''}
+                  </div>
                 </div>
 
                 <div className="field">
